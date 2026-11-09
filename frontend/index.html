@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docker Practice Todo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; }
+    form { display: flex; gap: 8px; }
+    input { flex: 1; padding: 8px; }
+    button { padding: 8px 12px; cursor: pointer; }
+    li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h1>Todo (Docker practice)</h1>
+  <form id="form">
+    <input id="title" placeholder="New task" required />
+    <button>Add</button>
+  </form>
+  <ul id="list"></ul>
+
+  <script>
+    const list = document.getElementById("list");
+
+    async function load() {
+      const res = await fetch("/api/todos");
+      const todos = await res.json();
+      list.innerHTML = "";
+      todos.forEach((t) => {
+        const li = document.createElement("li");
+        li.textContent = t.title + " ";
+        const del = document.createElement("button");
+        del.textContent = "x";
+        del.onclick = async () => {
+          await fetch("/api/todos/" + t.id, { method: "DELETE" });
+          load();
+        };
+        li.appendChild(del);
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById("form").onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("title");
+      await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: input.value }),
+      });
+      input.value = "";
+      load();
+    };
+
+    load();
+  </script>
+</body>
+</html>

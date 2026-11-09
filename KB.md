@@ -87,6 +87,49 @@ Check: each project page lists its files, and `node_modules` isn't there (`.giti
 - `remote origin already exists`: `git remote remove origin`, then add it again.
 - `repository not found`: typo in the username or project name.
 
+### Aside: nested repos (a repo inside a repo)
+
+Situation: `sample-app/` is itself a git repo, and `backend/` and `frontend/` each have their own `.git` inside it. When you `git add .` in the parent, git doesn't add their files. It records each folder as a single **gitlink**, a pointer to one commit of the inner repo, and warns `adding embedded git repository`. On GitLab the parent shows `backend` and `frontend` as empty, unclickable entries.
+
+Pick one of two ways out.
+
+**Option A: keep them as separate repos** (what Lab 1 does). Don't track them from the parent. Add them to the parent's `.gitignore`:
+
+```sh
+echo "backend/" >> .gitignore
+echo "frontend/" >> .gitignore
+```
+
+**Option B: fold them into the parent as one repo** (a monorepo). Run these two commands from `sample-app/`:
+
+```sh
+# delete the inner git metadata, so backend/ and frontend/ become plain folders
+# (the code stays; the inner commit history and remotes are gone for good)
+rm -rf backend/.git frontend/.git
+
+# remove the gitlink pointers from the parent's index (--cached = index only, files on disk untouched)
+git rm --cached backend frontend
+```
+
+Then stage the real files and commit:
+
+```sh
+git add .
+git commit -m "Track backend and frontend in the parent repo"
+```
+
+Why both commands, and in this order:
+
+- `rm -rf backend/.git frontend/.git` is what stops the folders being repos. Until the `.git` directories are gone, git keeps treating them as embedded repos.
+- `git rm --cached backend frontend` clears the stale gitlink entries (mode `160000`) from the index. Skip it and `git add .` can leave the old pointers in place instead of the file contents. `--cached` means nothing on disk is deleted. No `-r` is needed because a gitlink is a single entry.
+- Check `git ls-files -s backend | head` afterwards. You want `100644` lines for each file, not a single `160000` line.
+
+Before you run `rm -rf`:
+
+- It is irreversible. Make sure the inner repos are pushed (`git status` and `git log origin/main..` inside each) or you have no use for their history.
+- Run it from `sample-app/`, and check the paths. A typo with `rm -rf` has no undo.
+- Don't use Option B if you want separate GitLab projects, as in the Lab 6 flow of cloning `todo-backend` and `todo-frontend` into `backend/` and `frontend/`. Use Option A there.
+
 ## Lab 2: Single containers
 
 Goal: get comfortable with run, inspect, remove. No project files needed.
